@@ -1,0 +1,19 @@
+
+Example of data with random action sampling:
+
+
+============================================
+
+Action value example:0
+============================================
+State value example:[[-0.50992003 -0.00133432]]
+============================================
+Reward value example:-1.0
+
+
+Episode finished after 200 timesteps reward is -200.0
+============================================
+
+
+
+best network : trainNetworkInEPS .h5
