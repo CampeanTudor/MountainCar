@@ -1,10 +1,12 @@
-import gym
 from keras import models
 from keras import layers
 from keras.optimizers import Adam
 from collections import deque
 import random
 import numpy as np
+import datetime
+
+from myutils.Analytics import Analytics
 
 
 class MountainCarTrain:
@@ -31,6 +33,8 @@ class MountainCarTrain:
         self.targetNetwork = self.createNetwork()
 
         self.targetNetwork.set_weights(self.trainNetwork.get_weights())
+
+        self.analytics = Analytics()
 
     def createNetwork(self):
         model = models.Sequential()
@@ -113,6 +117,7 @@ class MountainCarTrain:
         rewardSum = 0
         max_position = -99
 
+        time_start_episode = datetime.datetime.now()
         for i in range(self.iterationNum):
             bestAction = self.getBestAction(currentState)
 
@@ -139,12 +144,14 @@ class MountainCarTrain:
 
             if done:
                 break
+        time_end_episode = datetime.datetime.now()
+        duration_episode = time_end_episode - time_start_episode
 
         if i >= 199:
             print("Failed to finish task in epsoide {}".format(eps))
         else:
             print("Success in epsoide {}, used {} iterations!".format(eps, i))
-            self.trainNetwork.save('.models/modelsMountainCar/trainNetworkInEPS{}with{}iterations.h5'.format(eps, i))
+            self.trainNetwork.save('./models/modelsMountainCar/trainNetworkInEPS{}with{}iterations.h5'.format(eps, i))
 
         # Sync
         self.targetNetwork.set_weights(self.trainNetwork.get_weights())
@@ -152,6 +159,8 @@ class MountainCarTrain:
         print("now epsilon is {}, the reward is {} maxPosition is {}".format(max(self.epsilon_min, self.epsilon),
                                                                              rewardSum, max_position))
         self.epsilon -= self.epsilon_decay
+
+        self.analytics.add_info(rewardSum, eps, i, duration_episode)
 
     def start(self):
         for eps in range(self.episodeNum):
