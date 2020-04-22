@@ -70,6 +70,7 @@ class MountainCarConvolutionalTraining:
         if np.random.rand(1) < self.epsilon:
             action = np.random.randint(0, 3)
         else:
+            state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
             action = np.argmax(self.train_network.predict(state)[0])
 
         return action
@@ -148,12 +149,12 @@ class MountainCarConvolutionalTraining:
             self.train_network.save(
                 '../models/modelsMountainCar/trainNetworkInEPS{}with{}iterations.h5'.format(eps, i))
 
-            # SYNC
+        # SYNC
 
-            self.target_network.set_weights(self.train_network.get_weights())
+        self.target_network.set_weights(self.train_network.get_weights())
 
-            print("now epsilon is {}, the reward is {}".format(max(self.epsilon_min, self.epsilon), reward_sum))
-            self.epsilon -= self.epsilon_decay
+        print("now epsilon is {}, the reward is {}".format(max(self.epsilon_min, self.epsilon), reward_sum))
+        self.epsilon -= self.epsilon_decay
 
         print("finished episode in {}".format(i))
 

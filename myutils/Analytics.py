@@ -1,3 +1,4 @@
+
 import numpy as np
 
 
@@ -8,9 +9,11 @@ class Analytics:
         self.episodes = []
         self.number_of_steps = []
         self.time_for_episodes = []
-        self.episodes_before_solve
+        self.episodes_before_solve = None
 
-    def add_info(self, reward, episode_number, number_of_steps, time_for_episode, episodes_before_solve):
+    def add_info(self, reward=None, episode_number=None, number_of_steps=None, time_for_episode=None,
+                 episodes_before_solve=None):
+
         if reward is not None:
             self.rewards.append(reward)
         if episode_number is not None:
