@@ -6,7 +6,7 @@ import random
 import numpy as np
 import datetime
 
-from myutils.Analytics import Analytics
+from myutils.performanceAnalyzation.Analytics import Analytics
 
 
 class MountainCarTrain:
@@ -151,7 +151,7 @@ class MountainCarTrain:
             print("Failed to finish task in epsoide {}".format(eps))
         else:
             print("Success in epsoide {}, used {} iterations!".format(eps, i))
-            self.trainNetwork.save('./models/modelsMountainCar/trainNetworkInEPS{}with{}iterations.h5'.format(eps, i))
+            self.trainNetwork.save('create_for_non_convolutional_training/trainNetworkInEPS{}with{}iterations.h5'.format(eps, i))
 
         # Sync
         self.targetNetwork.set_weights(self.trainNetwork.get_weights())
