@@ -1,7 +1,10 @@
+from collections import deque
+
 import numpy as np
 import gym
 import cv2
 import csv
+import random
 
 import myutils.constants.Constants as cts
 from myutils.offlineLearningDataGeneration.TrainingSetManipulator import TrainingSetManipulator as TrainingSetManipulator
@@ -25,10 +28,15 @@ class OfflineGridTrainingSetGenerator:
         self.vel_grid = np.linspace(self.vel_min, self.vel_max, self.total_vel_points)
         self.all_action = [0, 1, 2]
 
-    def generate_set_of_samples(self):
+        self.samples_deque = deque(maxlen=50) #tune from here the maxlen of the deque
 
-        env = gym.make('MountainCar-v0')
-        env.reset()
+        self.env = gym.make('MountainCar-v0')
+
+
+    def generate_set_of_samples_on_disk(self):
+
+
+        self.env.reset()
 
         sample_to_save = 0
 
@@ -43,7 +51,7 @@ class OfflineGridTrainingSetGenerator:
 
                 first_state_first_image_numerical = (first_state_first_image_position, first_state_first_image_velocity)
 
-                first_state_second_image_numerical, reward, done, _ = env.step_with_hardcoded_values(
+                first_state_second_image_numerical, reward, done, _ = self.env.step_with_hardcoded_values(
                     first_state_first_image_position,
                     first_state_first_image_velocity)
 
@@ -66,7 +74,7 @@ class OfflineGridTrainingSetGenerator:
                 #construct the next state
                 for state_transition_action in self.all_action:
 
-                    next_state_second_image_numerical, sample_reward, sample_done, _ = env.step(state_transition_action)
+                    next_state_second_image_numerical, sample_reward, sample_done, _ = self.step(state_transition_action)
 
                     # approximate the position obtained to the nearest value in the grid
                     second_state_second_image_position = self.pos_grid[(np.abs(self.pos_grid - next_state_second_image_numerical[0])).argmin()]
@@ -87,13 +95,54 @@ class OfflineGridTrainingSetGenerator:
                                                second_state_images,
                                                [state_transition_action, sample_reward, sample_done],
                                                sample_to_save)
-                    env.reset()
+                    self.env.reset()
 
                     sample_to_save = sample_to_save + 1
 
+    def generate_batch_of_samples_in_ram(self, size_batch):
 
 
+        self.env.reset()
 
+        self.samples_deque.clear()
+
+        positions_sampled_from_grid = random.sample(list(self.pos_grid), size_batch)
+        velocities_sampled_from_grid = random.sample(list(self.pos_grid), size_batch)
+
+        # the list of action is to small so I repeat it the minimum number of times neccesary
+        actions_sampled__first_state_from_grid = random.sample(list(np.repeat(self.all_action, int(size_batch+1/len(self.all_action)))), size_batch)
+        actions_sampled_transition_state_from_grid = random.sample(list(np.repeat(self.all_action, int(size_batch+1/len(self.all_action)))), size_batch)
+
+        for sample_number in range(size_batch):
+
+            first_state_first_image_position = positions_sampled_from_grid[sample_number]
+            first_state_first_image_velocity = velocities_sampled_from_grid[sample_number]
+            action_first_state = actions_sampled__first_state_from_grid[sample_number]
+            action_transition = actions_sampled_transition_state_from_grid[sample_number]
+
+            self.env.set_state_with_harcoded_values(first_state_first_image_position, first_state_first_image_velocity)
+            first_state_first_image = self.env.render(mode='rgb_array')
+
+            first_state_first_image = self.process_image_before_save(first_state_first_image)
+
+            first_state_second_image_numerical, _, _, _ = self.env.step(action_first_state)
+            first_state_second_image = self.env.render(mode='rgb_array')
+
+            first_state_second_image = self.process_image_before_save(first_state_second_image)
+
+            first_state_images = np.asarray([first_state_first_image, first_state_second_image])
+
+            next_state_second_image_numerical, sample_reward, sample_done, _ = self.env.step(action_transition)
+
+            second_state_second_image = self.env.render(mode='rgb_array')
+
+            second_state_second_image = self.process_image_before_save(second_state_second_image)
+
+            second_state_images = np.asarray([first_state_second_image, second_state_second_image])
+
+            self.samples_deque.append([first_state_images, action_transition, sample_reward, second_state_images, sample_done])
+
+        return self.samples_deque
 
 
     def generarte_grid_of_2_image_states(self):
