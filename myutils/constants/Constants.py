@@ -12,7 +12,7 @@ class Constants:
     PATH_TO_OFFLINE_LEARNING_STATES_GRID_INDEX_IMAGE1_TEMPLATE = '../../datasets/offlineLearning/gridOfStates/index_{}_{}_image_1.jpg'
     PATH_TO_OFFLINE_LEARNING_STATES_GRID_INDEX_IMAGE2_TEMPLATE = '../../datasets/offlineLearning/gridOfStates/index_{}_{}_image_2.jpg'
 
-    PATH_TO_MODELS_OFFLINE_LEARNING = '../../models/modelsMountainCar/offlineLearning,'
+    PATH_TO_MODELS_OFFLINE_LEARNING = '../../models/modelsMountainCar/offlineLearning/'
     PATH_TO_MODELS_VALID_SOLUTION = '../../models/modelsMountainCar/validSolution/'
 
     PATH_TO_MODELS_SUCCESSFUL = '../../models/modelsMountainCar/successful/'

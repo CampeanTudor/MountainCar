@@ -7,6 +7,8 @@ from keras import models
 from keras import layers
 from keras.optimizers import Adam
 from myutils.offlineLearningDataGeneration.TrainingSetManipulator import TrainingSetManipulator
+from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
+from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
 import myutils.constants.Constants as cts
 
 import numpy as np
@@ -48,6 +50,8 @@ class MountainCarConvolutionalTraining:
         self.training_set_manipulator = TrainingSetManipulator()
 
         self.training_mode = training_mode
+
+        self.offline_trainig_set_generator = OfflineGridTrainingSetGenerator()
 
 
     def create_network(self):
@@ -162,6 +166,7 @@ class MountainCarConvolutionalTraining:
             #sync networks
             if (i % 300) == 0:
                 self.synch_networks()
+            print("iteration {} equivalent to {} episodes".format(i, int(i/300)))
 
             #save model every 5000 iterations
             if (i % 5000) == 0:
@@ -174,7 +179,7 @@ class MountainCarConvolutionalTraining:
         current_state = deque(maxlen=2)
         next_state = deque(maxlen=2)
         for i in range(self.num_pick_from_buffer):
-            sample_number = random.randrange(1, 30000)
+            sample_number = random.randrange(1, 300000)
 
             current_state_img1 = cv2.imread(
                 cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLE_CURRENT_STATE_TEMPLATE.format(0, sample_number))
@@ -278,7 +283,8 @@ class MountainCarConvolutionalTraining:
             samples = random.sample(self.replay_buffer, self.num_pick_from_buffer)
 
         elif self.training_mode == 'offline':
-            samples = self.offline_learning_random_sampling()
+            #samples = self.offline_learning_random_sampling()
+            samples = self.offline_trainig_set_generator.generate_batch_of_samples_in_ram(self.num_pick_from_buffer)
 
         return samples
 
