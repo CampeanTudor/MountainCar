@@ -30,7 +30,7 @@ class MountainCarConvolutionalTraining:
         self.target_network = self.create_network()
 
         self.epsilon = 1
-        self.epsilon_decay = 0.05
+        self.epsilon_decay = 0.000018
         self.epsilon_min = 0.1
 
         self.frames_memory = deque(maxlen=self.stack_depth)
@@ -95,9 +95,12 @@ class MountainCarConvolutionalTraining:
 
         reward_sum = 0
 
-        for i in range(self.time_steps_in_episode):
+        for time_step in range(self.time_steps_in_episode):
 
-            best_action = self.get_best_action(current_state)
+            #calculate a new action only when all frames from a state had been changed
+            if time_step % self.stack_depth == 0:
+                best_action = self.get_best_action(current_state)
+
 
             new_state_numerical, reward, done, _ = self.env.step(best_action)
             new_image = self.env.render(mode='rgb_array')
@@ -108,10 +111,6 @@ class MountainCarConvolutionalTraining:
             self.frames_memory.append(next_frame)
 
             new_state = np.asarray(self.frames_memory)
-
-            # # Adjust reward for task completion
-            if done:
-                reward += 10
 
             self.replay_buffer.append([current_state, best_action, reward, new_state, done])
 
@@ -128,23 +127,20 @@ class MountainCarConvolutionalTraining:
             if done:
                 break
 
-        if i >= self.time_steps_in_episode - 1:
+        if time_step >= self.time_steps_in_episode - 1:
             print("Failed to finish task in episode {} with reward {} and epsilon {}".format(episode, reward_sum,
                                                                                              self.epsilon))
         else:
-            print("Success in epsoide {}, used {} time steps!".format(episode, i))
+            print("Success in epsoide {}, used {} time steps!".format(episode, time_step))
             self.train_network.save(
                 cts.Constants.PATH_TO_MODELS_SUCCESSFUL + 'successful_while_training_episode_{}_timesteps_{}_rewards_{}.h5'.format(
-                    episode, i, reward_sum))
+                    episode, time_step, reward_sum))
 
         if self.training:
 
             # synchronize model_network and target_network
             if (episode % self.update_weights_threshold) == 0:
                 self.synch_networks()
-
-            # update epsilon
-            print("now epsilon is {}, the reward is {}".format(max(self.epsilon_min, self.epsilon), reward_sum))
 
 
             # save weights for tracking progress
@@ -153,6 +149,11 @@ class MountainCarConvolutionalTraining:
                 self.train_network.save(
                     cts.Constants.PATH_TO_MODELS_TRACKING_PROGRESS_TRESHOLD_SAVES+'DQN_CNN_model_episode_{}.h5'.format(
                         episode, episode))
+            with open('./rewards_in_episodes.csv', mode='a+', newline='') as numerical_data:
+                numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
+                                                   quoting=csv.QUOTE_MINIMAL)
+                numerical_data_writer.writerow([episode, reward_sum])
+
 
     def learn_offline(self):
         #echivalentul la 10^3 episoade cu 300 de antrenari/episode
@@ -232,11 +233,18 @@ class MountainCarConvolutionalTraining:
             state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
             action = np.argmax(self.train_network.predict(state)[0])
 
+        #update epsilon
+        if self.training:
+            self.epsilon -= self.epsilon_decay
+
         return action
 
     def train_training_network(self):
 
         samples = self.get_samples_batch()
+
+        if not samples:
+            return
 
         current_state = []
         new_states = []
@@ -263,12 +271,12 @@ class MountainCarConvolutionalTraining:
         i = 0
         for sample in samples:
             state, action, reward, new_state, done = sample
-            target = current_state_Q_values[i]
+
             if done:
-                target[action] = reward
-            else:
-                Q_future = max(next_state_Q_values[i])
-                target[action] = reward + Q_future * 0.99
+                next_state_Q_values[i] = np.zeros(self.num_actions)
+
+            Q_future = max(next_state_Q_values[i])
+            (current_state_Q_values[i])[action] = reward + Q_future * 0.99
             i += 1
 
         self.train_network.fit(current_state, current_state_Q_values, epochs=1, verbose=0)
@@ -294,7 +302,7 @@ class MountainCarConvolutionalTraining:
         initial_image_shape = self.env.render(mode='rgb_array').shape
         image_height = 100 #initial_image_shape[0]
         image_width = 150 #initial_image_shape[1]
-        stack_depth = 2
+        stack_depth = 4
 
         # dimensions are 2 400 600
         return stack_depth, image_height, image_width
