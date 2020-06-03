@@ -1,7 +1,7 @@
 import csv
 from collections import deque
 import random
-
+import tensorflow as tf
 import cv2
 from keras import models
 from keras import layers
@@ -68,7 +68,7 @@ class MountainCarConvolutionalTraining:
         model.add(layers.Dense(512, activation='relu', name='dense_1'))
         model.add(layers.Dense(self.num_actions, activation='linear', name='output'))
 
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        model.compile(loss=tf.keras.losses.Huber(), optimizer=Adam(lr=self.learning_rate))
 
         return model
 
@@ -167,7 +167,7 @@ class MountainCarConvolutionalTraining:
             #sync networks
             if (i % 300) == 0:
                 self.synch_networks()
-            print("iteration {} equivalent to {} episodes".format(i, int(i/300)))
+                print("iteration {} equivalent to {} episodes".format(i, int(i/300)))
 
             #save model every 5000 iterations
             if (i % 5000) == 0:
@@ -177,8 +177,8 @@ class MountainCarConvolutionalTraining:
 
         samples = deque(maxlen=self.num_pick_from_buffer)
 
-        current_state = deque(maxlen=2)
-        next_state = deque(maxlen=2)
+        current_state = deque(maxlen=self.stack_depth)
+        next_state = deque(maxlen=self.stack_depth)
         for i in range(self.num_pick_from_buffer):
             sample_number = random.randrange(1, 300000)
 
@@ -273,6 +273,7 @@ class MountainCarConvolutionalTraining:
             state, action, reward, new_state, done = sample
 
             if done:
+
                 next_state_Q_values[i] = np.zeros(self.num_actions)
 
             Q_future = max(next_state_Q_values[i])
@@ -292,7 +293,7 @@ class MountainCarConvolutionalTraining:
 
         elif self.training_mode == 'offline':
             #samples = self.offline_learning_random_sampling()
-            samples = self.offline_trainig_set_generator.generate_batch_of_samples_in_ram(self.num_pick_from_buffer)
+            samples = self.offline_trainig_set_generator.generate_batch_of_samples_in_ram(self.num_pick_from_buffer,self.stack_depth)
 
         return samples
 
