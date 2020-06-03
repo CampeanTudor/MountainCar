@@ -7,6 +7,7 @@ import csv
 import random
 
 import myutils.constants.Constants as cts
+from myutils.gym_custom.gym_custom import MountainCarEnvWrapper
 from myutils.offlineLearningDataGeneration.TrainingSetManipulator import TrainingSetManipulator as TrainingSetManipulator
 
 
@@ -30,7 +31,7 @@ class OfflineGridTrainingSetGenerator:
 
         self.samples_deque = deque(maxlen=50) #tune from here the maxlen of the deque
 
-        self.env = gym.make('MountainCar-v0')
+        self.env = MountainCarEnvWrapper(gym.make('MountainCar-v0'))
 
 
     def generate_set_of_samples_on_disk(self):
@@ -99,7 +100,7 @@ class OfflineGridTrainingSetGenerator:
 
                     sample_to_save = sample_to_save + 1
 
-    def generate_batch_of_samples_in_ram(self, size_batch):
+    def generate_batch_of_samples_in_ram(self, size_batch, stack_depth):
 
 
         self.env.reset()
@@ -109,38 +110,44 @@ class OfflineGridTrainingSetGenerator:
         positions_sampled_from_grid = random.sample(list(self.pos_grid), size_batch)
         velocities_sampled_from_grid = random.sample(list(self.pos_grid), size_batch)
 
-        # the list of action is to small so I repeat it the minimum number of times neccesary
-        actions_sampled__first_state_from_grid = random.sample(list(np.repeat(self.all_action, int(size_batch+1/len(self.all_action)))), size_batch)
-        actions_sampled_transition_state_from_grid = random.sample(list(np.repeat(self.all_action, int(size_batch+1/len(self.all_action)))), size_batch)
+        first_state = deque(maxlen=stack_depth)
+
 
         for sample_number in range(size_batch):
 
             first_state_first_image_position = positions_sampled_from_grid[sample_number]
             first_state_first_image_velocity = velocities_sampled_from_grid[sample_number]
-            action_first_state = actions_sampled__first_state_from_grid[sample_number]
-            action_transition = actions_sampled_transition_state_from_grid[sample_number]
 
+            #set the agent in the position to crate a sample
             self.env.set_state_with_harcoded_values(first_state_first_image_position, first_state_first_image_velocity)
-            first_state_first_image = self.env.render(mode='rgb_array')
 
-            first_state_first_image = self.process_image_before_save(first_state_first_image)
+            first_state.clear()
 
-            first_state_second_image_numerical, _, _, _ = self.env.step(action_first_state)
-            first_state_second_image = self.env.render(mode='rgb_array')
 
-            first_state_second_image = self.process_image_before_save(first_state_second_image)
+            #obtain the first state
+            for frame_number in range(stack_depth):
+                current_frame = self.env.render(mode='rgb_array')
+                current_frame = self.process_image_before_save(current_frame)
+                first_state.append(current_frame)
+                self.env.step(random.choice(self.all_action))
 
-            first_state_images = np.asarray([first_state_first_image, first_state_second_image])
+            #take action to next state
+            action_transition = random.choice(self.all_action)
+            second_state_final_frame_numerical, sample_reward, sample_done, _ = self.env.step(action_transition)
 
-            next_state_second_image_numerical, sample_reward, sample_done, _ = self.env.step(action_transition)
+            #obtain the last frame for the second state
+            second_state_final_frame = self.env.render(mode='rgb_array')
+            second_state_final_frame = self.process_image_before_save(second_state_final_frame)
 
-            second_state_second_image = self.env.render(mode='rgb_array')
+            #create the second state
+            second_state = first_state.copy()
+            second_state.append(second_state_final_frame)
 
-            second_state_second_image = self.process_image_before_save(second_state_second_image)
+            first_state_for_sample = np.asarray(first_state)
+            second_state_for_sample = np.asarray(second_state)
 
-            second_state_images = np.asarray([first_state_second_image, second_state_second_image])
-
-            self.samples_deque.append([first_state_images, action_transition, sample_reward, second_state_images, sample_done])
+            #construct the sample
+            self.samples_deque.append([first_state_for_sample, action_transition, sample_reward, second_state_for_sample, sample_done])
 
         return self.samples_deque
 
