@@ -171,7 +171,7 @@ class MountainCarConvolutionalTraining:
 
             #save model every 5000 iterations
             if (i % 5000) == 0:
-                self.train_network.save(cts.Constants.PATH_TO_SAVE_MODEL_OFFLINE_LEARNING_AT_ITERATION_TEMPALTE.format(i))
+                self.train_network.save(cts.Constants.PATH_TO_SAVE_MODEL_OFFLINE_LEARNING_AT_ITERATION_TEMPALTE.format(int(i)))
 
     def offline_learning_random_sampling(self):
 
@@ -284,7 +284,7 @@ class MountainCarConvolutionalTraining:
 
     def get_samples_batch(self):
 
-        if self.training_mode == 'online':
+        if self.training_mode == 'online_changed_Q_values':
 
             if len(self.replay_buffer) < self.num_pick_from_buffer:
                 return
