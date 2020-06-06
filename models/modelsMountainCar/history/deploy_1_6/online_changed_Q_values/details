@@ -1,0 +1,17 @@
+MountainCarConvolutionalTraining specifications:
+
+stack_depth = 4 frames(4 frames/state)
+num_pic_from buffer = 32
+minimum_samples before started the training: 150000
+max size buffer to pick up from samples for training :200000
+
+hidden layers in network:
+
+2 -> Conv2D
+1-> Dense
+
+loss method = mse
+
+
+train network:
+All Q values are 0 for actions possible except the one for the best action that has Q value updated
