@@ -10,15 +10,16 @@ from myutils.offlineLearningDataGeneration.TrainingSetManipulator import Trainin
 from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
 from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
 import myutils.constants.Constants as cts
-
+from keras.losses import huber_loss
 import numpy as np
 from io import StringIO
 
+from keras import backend as K
 
 
 class MountainCarConvolutionalTraining:
 
-    def __init__(self, env, training_mode='online'):
+    def __init__(self, env):
 
         self.env = env
 
@@ -49,11 +50,6 @@ class MountainCarConvolutionalTraining:
 
         self.training_set_manipulator = TrainingSetManipulator()
 
-        self.training_mode = training_mode
-
-        self.offline_trainig_set_generator = OfflineGridTrainingSetGenerator()
-
-
     def create_network(self):
         input_shape = (self.stack_depth, self.image_height, self.image_width)
 
@@ -68,39 +64,36 @@ class MountainCarConvolutionalTraining:
         model.add(layers.Dense(512, activation='relu', name='dense_1'))
         model.add(layers.Dense(self.num_actions, activation='linear', name='output'))
 
-        model.compile(loss=tf.keras.losses.Huber(), optimizer=Adam(lr=self.learning_rate))
+        model.compile(loss=huber_loss, optimizer=Adam(lr=self.learning_rate))
 
         return model
 
     def start(self):
 
-        if self.training_mode == 'online':
-            for episode in range(self.episode_num):
-                self.frames_memory.clear()
+        for episode in range(self.episode_num):
+            self.frames_memory.clear()
 
-                self.env.reset()
+            self.env.reset()
 
-                current_image = self.env.render(mode='rgb_array')
-                current_frame = self.process_image(current_image)  # the frame is an greyscale image of the current position
-                current_frame = current_frame.reshape(1, current_frame.shape[0], current_frame.shape[1])
-                current_state = np.repeat(current_frame, self.stack_depth, axis=0)
-                self.frames_memory.extend(current_state)
+            current_image = self.env.render(mode='rgb_array')
+            current_frame = self.process_image(
+                current_image)  # the frame is an greyscale image of the current position
+            current_frame = current_frame.reshape(1, current_frame.shape[0], current_frame.shape[1])
+            current_state = np.repeat(current_frame, self.stack_depth, axis=0)
+            self.frames_memory.extend(current_state)
 
-                self.learn_online_from_episode(current_state, episode)
+            self.do_learn(current_state, episode)
 
-        elif self.training_mode == 'offline':
-            self.learn_offline()
 
-    def learn_online_from_episode(self, current_state, episode):
+    def do_learn(self, current_state, episode):
 
         reward_sum = 0
 
         for time_step in range(self.time_steps_in_episode):
 
-            #calculate a new action only when all frames from a state had been changed
+            # calculate a new action only when all frames from a state had been changed
             if time_step % self.stack_depth == 0:
                 best_action = self.get_best_action(current_state)
-
 
             new_state_numerical, reward, done, _ = self.env.step(best_action)
             new_image = self.env.render(mode='rgb_array')
@@ -142,87 +135,16 @@ class MountainCarConvolutionalTraining:
             if (episode % self.update_weights_threshold) == 0:
                 self.synch_networks()
 
-
             # save weights for tracking progress
             if (episode % self.save_model_threshold) == 0:
                 print('Data saved at episode:', episode)
                 self.train_network.save(
-                    cts.Constants.PATH_TO_MODELS_TRACKING_PROGRESS_TRESHOLD_SAVES+'DQN_CNN_model_episode_{}.h5'.format(
+                    cts.Constants.PATH_TO_MODELS_TRACKING_PROGRESS_TRESHOLD_SAVES + 'DQN_CNN_model_episode_{}.h5'.format(
                         episode, episode))
             with open('./rewards_in_episodes.csv', mode='a+', newline='') as numerical_data:
                 numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
                                                    quoting=csv.QUOTE_MINIMAL)
                 numerical_data_writer.writerow([episode, reward_sum])
-
-
-    def learn_offline(self):
-        #echivalentul la 10^3 episoade cu 300 de antrenari/episode
-        for i in range(3000000):
-
-            self.train_training_network()
-
-            #decay epsilon
-            self.epsilon -= self.epsilon_decay
-
-            #sync networks
-            if (i % 300) == 0:
-                self.synch_networks()
-                print("iteration {} equivalent to {} episodes".format(i, int(i/300)))
-
-            #save model every 5000 iterations
-            if (i % 5000) == 0:
-                self.train_network.save(cts.Constants.PATH_TO_SAVE_MODEL_OFFLINE_LEARNING_AT_ITERATION_TEMPALTE.format(int(i)))
-
-    def offline_learning_random_sampling(self):
-
-        samples = deque(maxlen=self.num_pick_from_buffer)
-
-        current_state = deque(maxlen=self.stack_depth)
-        next_state = deque(maxlen=self.stack_depth)
-        for i in range(self.num_pick_from_buffer):
-            sample_number = random.randrange(1, 300000)
-
-            current_state_img1 = cv2.imread(
-                cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLE_CURRENT_STATE_TEMPLATE.format(0, sample_number))
-            current_state_img2 = cv2.imread(
-                cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLE_CURRENT_STATE_TEMPLATE.format(1, sample_number))
-            current_state_img1 = self.process_image(current_state_img1)
-            current_state_img2 = self.process_image(current_state_img2)
-
-            current_state.append(current_state_img1)
-            current_state.append(current_state_img2)
-
-            next_state_img1 = cv2.imread(
-                cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLE_NEXT_STATE_TEMPLATE.format(0, sample_number))
-            next_state_img2 = cv2.imread(
-                cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLE_NEXT_STATE_TEMPLATE.format(1, sample_number))
-            next_state_img1 = self.process_image(next_state_img1)
-            next_state_img2 = self.process_image(next_state_img2)
-
-            next_state.append(next_state_img1)
-            next_state.append(next_state_img2)
-
-            with open(cts.Constants.PATH_TO_OFFLINE_LEARNING_SAMPLES_NUMERICAL_VALUES, "r") as f:
-                reader = csv.reader(f, delimiter="\t")
-                for i, line in enumerate(reader):
-                    if i == sample_number:
-                        data = line
-                        break
-
-
-            f = StringIO(data[0])
-            reader = csv.reader(f, delimiter=',')
-            for element in reader:
-                action = int(element[0])
-                reward = float(element[1])
-                done = element[2] == 'True'
-            f.close()
-
-            samples.append([current_state, action, reward, next_state, done])
-
-        return samples
-
-
 
     def get_best_action(self, state):
         self.epsilon = max(self.epsilon, self.epsilon_min)
@@ -233,7 +155,7 @@ class MountainCarConvolutionalTraining:
             state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
             action = np.argmax(self.train_network.predict(state)[0])
 
-        #update epsilon
+        # update epsilon
         if self.training:
             self.epsilon -= self.epsilon_decay
 
@@ -273,7 +195,6 @@ class MountainCarConvolutionalTraining:
             state, action, reward, new_state, done = sample
 
             if done:
-
                 next_state_Q_values[i] = np.zeros(self.num_actions)
 
             Q_future = max(next_state_Q_values[i])
@@ -284,25 +205,18 @@ class MountainCarConvolutionalTraining:
 
     def get_samples_batch(self):
 
-        if self.training_mode == 'online_changed_Q_values':
+        if len(self.replay_buffer) < self.num_pick_from_buffer:
+            return
 
-            if len(self.replay_buffer) < self.num_pick_from_buffer:
-                return
-
-            samples = random.sample(self.replay_buffer, self.num_pick_from_buffer)
-
-        elif self.training_mode == 'offline':
-            #samples = self.offline_learning_random_sampling()
-            samples = self.offline_trainig_set_generator.generate_batch_of_samples_in_ram(self.num_pick_from_buffer,self.stack_depth)
+        samples = random.sample(self.replay_buffer, self.num_pick_from_buffer)
 
         return samples
-
 
     def get_model_input_shape(self):
         self.env.reset()
         initial_image_shape = self.env.render(mode='rgb_array').shape
-        image_height = 100 #initial_image_shape[0]
-        image_width = 150 #initial_image_shape[1]
+        image_height = 100  # initial_image_shape[0]
+        image_width = 150  # initial_image_shape[1]
         stack_depth = 4
 
         # dimensions are 2 400 600
