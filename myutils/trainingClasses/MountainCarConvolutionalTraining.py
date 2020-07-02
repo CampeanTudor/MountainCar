@@ -111,9 +111,9 @@ class MountainCarConvolutionalTraining:
             if len(self.replay_buffer) == self.minimum_samples_for_training:
                 self.training = True
 
+
             if self.training:
                 self.train_training_network()
-
             reward_sum += reward
             current_state = new_state
 
@@ -197,6 +197,7 @@ class MountainCarConvolutionalTraining:
             if done:
                 next_state_Q_values[i] = np.zeros(self.num_actions)
 
+            current_state_Q_values[i] = np.zeros(self.num_actions)
             Q_future = max(next_state_Q_values[i])
             (current_state_Q_values[i])[action] = reward + Q_future * 0.99
             i += 1

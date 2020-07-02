@@ -1,0 +1,12 @@
+make sure in myutils exists: xvfbwrapper.py for creating the fake screen
+create zip from project with the deploy id in the name
+upload the zip file on the server
+use zip_extractor.ipynb to unzip the files in a folder with the deploy name
+create an training_file.ipynb in the deploy package(where you can find myutils)
+integrate the code for training in the training_file template so you can use the fake screen
+update the file paths from Constants to match the location of the new training_file.ipynb
+
+make sure you initialize the env with a custom wrapper created in myutils.gym_custom package it there exists the need to use custom functionality
+
+after the deploy is successful save the  zip file in notebooks.deploys(this has to be reorganized)
+
