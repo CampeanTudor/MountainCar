@@ -1,0 +1,13 @@
+7 2 2020:
+
+-am regandit structura de lucru pe proiect (branch update_project_structure_for_systemized_work)
+
+status actual proiect:
+
+-sa verific ca environmentul returneaza corect informatia pentru online si offline learning: -metodele suprascrise in gym_custom sunt cele folosite cand e cazul
+                                                                                             - sa imi dau seama in ce deploy erau greseli de environment
+- sa verific flowul de offline si online learning ca e corect logic
+-sa verific logica la sample creation in offline case
+-sa verific logica pe train_network(atat pe online cat si pe offline)
+
+astea toate se vor face pe branchul develop-seriously -> check_logic_implementation_and_design

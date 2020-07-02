@@ -85,6 +85,7 @@ class MountainCarConvolutionalTrainingOfflineLearningWrapper(MountainCarConvolut
 
         return self.samples_deque
 
+    #nu e nevoie nici de current_state nici de episode in logica offline
     def do_learn(self, current_state, episode):
         # echivalentul la 10^3 episoade cu 300 de antrenari/episode
         for i in range(3000000):
