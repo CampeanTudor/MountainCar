@@ -2,12 +2,44 @@
 
 -am regandit structura de lucru pe proiect (branch update_project_structure_for_systemized_work)
 
-status actual proiect:
 
--sa verific ca environmentul returneaza corect informatia pentru online si offline learning: -metodele suprascrise in gym_custom sunt cele folosite cand e cazul
+
+verificare proiect ca nu are buguri in logica( branch deploy_3_6/fix_logic_bugs):
+
+-sa verific ca environmentul returneaza corect informatia pentru online si offline learning: -metodele suprascrise in gym_custom sunt cele folosite cand e cazul + corecte
                                                                                              - sa imi dau seama in ce deploy erau greseli de environment
 - sa verific flowul de offline si online learning ca e corect logic
--sa verific logica la sample creation in offline case
--sa verific logica pe train_network(atat pe online cat si pe offline)
+- sa verific logica la sample creation in offline case
+- sa verific logica pe train_network(atat pe online cat si pe offline)
 
 astea toate se vor face pe branchul develop-seriously -> check_logic_implementation_and_design
+
+
+7 4 2020:
+
+-lucrez tot pe fix logic_logic_bugs
+
+-am comis gym_custom pentru prima dadta pentru a fi in git(considerat tot functionalitate pe branchul cu logic_bugs)
+
+-a trebuit sa testez rezultatele de la offline learning_deploy_3_6_correnct_huber_loss_function; o sa creez patch cu toate astea si dupa
+ce termin taskul asta revin pentru a le pune cum trebuie in history
+
+-am revenit pe update_project_structure_for_systemized_work pentru a adauga si reportul pe care l-am dat domnului profesor in legatura
+cu statusul proiectului; am mergeuit in develop-seriously si in fix_logic_bugs ce contine modele mentionate o linie mai sus
+
+---revenit la  fix_logic_bugs____
+sa verific logica la sample creation in offline case: problema la velocity sample from grid->corectat
+
+                                                      logica pare in regula: o pozitie random;o actiune randomm aplicata de 3 ori;
+                                                      cele 4 frameuri imi reprezinta primul state; actiune random pt al 5 lea frame;
+                                                      il adaug la finalul stackului de frameuri din primul state si elimint primul frame;
+                                                      am al doilea state; creez sample cu cele 2 sateuri si a 2 a actiune random, reward si done
+
+                                                      posibila greseala la crearea primului state: am corectat
+
+                                                      optimizare cod -analiza prima data samples creation offline: 2.7 secunde metoda de creat sampleuri
+                                                       "Time values for get_samples_batch: \n","Environment reset: 0:00:00\n","dequeue.clear(): 0:00:00.000997\n","random sampling: 0:00:00\n","deque initialize: 0:00:00\n","Step with hardcoded values: 0:00:00\n", "Render time: 0:00:00.015140\n","Process image time: 0:00:00.001000\n","Copy and append: 0:00:00\n","Construct all samples: 0:00:02.658710\n","Time values for get_samples_batch: \n",\"Environment reset: 0:00:00\n","dequeue.clear(): 0:00:00.000997\n","random sampling: 0:00:00.000996\n","deque initialize: 0:00:00\n","Step with hardcoded values: 0:00:00\n","Render time: 0:00:00.015192\n","Process image time: 0:00:00.001000\n","Copy and append: 0:00:00\n","Construct all samples: 0:00:02.665679\n"
+
+                                                      as putea sa reorganizez in sensul in care sa imi adaug din prima 150*10^3 sampleuri in memorie si dupa sa adaug doar cate unu in fiecare
+                                                      iteratie si sa fac sample dintr un queue foarte mare ca in online->creez un develop-seriously-test branch
+
