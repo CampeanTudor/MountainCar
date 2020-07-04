@@ -1,0 +1,114 @@
+reinforcement learning pentru mountaincar ce invata online si offline din interactiunea cu environmentul
+
+reteaua antrenata:
+	ambele folosesc o retea cu urmatoarea configuratie: Conv2D de 32,  Conv2D de 64, Conv2D de 64, Flatten, Dense de 512, Dense de 3(output) | toate au Relu in afara de output care are linear ca activation
+
+	inputul retelei e format dintr-un stack de 4 imagini, fiecare cu dimensiunea (4 100 150) ->  procesarea pe imagine e formata din: convert to greyscale, resize(from (400 600) to (100 150 )), normalize image
+
+	outputul reprezinta Q-value pentru fiecare actiune posibila din starea reprezentata de imaginile introduse
+
+
+logica de antrenare a retelei:
+
+	
+	din "replay_buffer" se aleg random 32 de sampleuri; pentru fiecare stare curenta si stare urmatoare(ceea in care se ajunge in urma actiunii luate), din sample, se calculeaza Q-value pentru fiecare actiunie posibila ;
+
+	daca second_state_from_sample e terminal atunci se suprascriu Q-value fiecarei actiuni ce se poate lua din next_state cu 0; 
+
+	pentru fiecare actiune din sample, Q-value(action_from_sample,first_state_from_sample) este este suprascris cu formula Q_first_state_from_sample = r+ max Q_second_state_from_sample; 
+
+	restul valorilor Q(every_other_actions_not_used, first_state_from_sample ) sunt suprascrie cu 0; 
+
+	reteaua face fit pe (all_first_state_images_from, sample,updated_Q_values_for_first_state_from_samples) cu urmatorii parametrii: epochs:1, verbose: 0; optimizerul folosit este "Adam", loss_function: huber_loss  *am incercat cu aceasta functie pentru a evita schimbarile mari in functia mateatica a retelei, de la o antrenare la alta, pe care mse le presupune
+
+	am suprascris functia reward sa retunrneze +1 daca starea e terminala si in rest -1, varianta din librarie este -1 pentru toate variantele, am facut asta pentru a a da un boost putin mai mare convergerii spre valorile Q*
+
+	functionare random sampling: replay_buffer e un dequeue ce poate tine maxim 200000 de elemente. Odata ce aceasta capacitate a fost atinsa, sampleurile vechi sunt inlocuite de cele noi. Samplingul se face astfel incat sa se evite pe cat posibil corelarea datelor ce vor fi folosite la antrenare.
+
+	valorile pentru Q_first_state_from_sample si Q_second_state_from_sample nu sunt computate de aceeasi retea pentru a se evita corelarea data de formula ce face update valorilor Q; in functie de valori predefinite, weighturile retelei ce face predict pentru Q_first_state( numita training_network) sunt copiate in reteaua (target_network) ce face repdict pentru Q_second_state; pentru invatarea online, se face synch tot la 35 de episoade si pt offline, tot la 300 de iteratii(echivalentul al 1 episod)
+
+
+*modul de alegere a actiunii: exista o perioada de explorare pura in care se iau doar actiuni random(dureaza pana se strang in "replay_buffer" 150000 de sampleuri). Dupa ce exista minimul de sampleuri din care sa se poata face random choosing, se face treptat trecerea catre alegerea greedy a actiunii, in functie de retea. "treptat" e caracterizat de o valoare epsilon ca incepe sa scada de la 1 pana la 0.1. Probabilitatea sa fie aleasa o actiune pe bazaa retelei e devine tot mai mare pe masura ce epsilon scade.
+
+
+procesul de invatare online:
+
+	in fiecare episod(configurarea numarului de episoade o fac manual) agentul are 300 de actiuni de luat inainte sa se termine episodul(default este de 200 de time_steps, dar pentru a asigura gasirea unei solutii in faza de explorare initiala, l-am crescut la 300)
+
+	in fiecare time_step din episod, agentul alege o actiune(precum am specificat la modul de alege a actiunii), salveaza sampleul nou obtinut in replay_buffer si face o antrenare a retelei
+
+
+
+procesul de invatare offline:
+
+	pentru 3000000 de iteratii se face antrenarea retelei(dupa aceeasi logica de mai sus)
+
+	diferenta fata de cazul online sta in faptul ca samplurile nu sunt obtinute in urma explorarii facute de agent ci in faptul ca,dintr-un grid(de 100 de valori ale pozitiei si 100 de valori ale vitezei -> in ambele cazuri valorile sunt distribuite egal de la minim pana la maxim) sunt alese random valori. de la aceste valori se creeaza sampleuri dupa urmatoarea logica: se aleg random 2 valori, rand_pos, rand_vel din griduri; se obtine primul frame corespondent acestui state; se alege o actiune random ce se aplica de 3 ori pentru a obtine 4 frameuri, echivalente la primul state; se alege o actiune random pentru tranzitia catre noul state; se obtine frameul; se iau ultimele 3 frameuri din primul state la care se adauga la final ultimul obitnut si se obtine al doilea state; 32 de astfel de sampleuri sunt trimise catre antrenare
+
+
+pentru invatarea online e necesara rularea de episoade efectiv in care antrenarea retelei sa fie folosita; pentru cea offline, pentru un anumit numar de iteratii, apelez functia de antrenare a retelei ce foloseste o metoda hardcodata ce creeaza random sampleuri pe loc
+
+
+
+salvarea modelelor:
+
+	in invatarea online salvez wieghturile retelei daca a reusit sa castige intr-un episod; de asemenea le salvez tot la 1000 de episoade pentru a avea o imagine de ansamblu leagata de prgresul procesului de invatare
+
+	in invatareea offline le salvez tot la 5000 de iteratii(echivalente cu apelari a functiei de antrenare pe batch-ul de 32 de sampleuri)
+
+
+date de configurare:
+
+self.stack_depth, self.image_height, self.image_width = 4 100 150
+self.num_actions = env.action_space.n
+
+self.learning_rate = 0.00025 # pt optimizer
+self.train_network = self.create_network()
+self.target_network = self.create_network()
+
+self.epsilon = 1
+self.epsilon_decay = 0.000018
+self.epsilon_min = 0.1
+
+self.frames_memory = deque(maxlen=self.stack_depth)
+self.replay_buffer = deque(maxlen=200000)
+self.minimum_samples_for_training = 150000
+self.num_pick_from_buffer = 32
+
+self.time_steps_in_episode = 300  
+
+self.episode_num = 10000
+
+self.training = False
+
+self.update_weights_threshold = 35 # pentru invatarea online
+self.save_model_threshold = 1000 # pentru invatarea online
+
+
+
+
+
+Observatii:
+
+	flowul pentru offline learning este extrem de incet(mult mai incet decat cel online) si eu nevoie de 12 de ore pentru a parcurge 124000 de interatii(procesul de trecere de la explorare la totala exploatare dureaza 50000 de iteratii). De asemenea echivalentul la 500 de episoade(cat am observat ca ar trebui sa se considere minim o sesiune de antrenare pentru a se stabili daca modelul se mai poate imbunatati sau nu) este de 150000, daca se considera 300 de time_steps/episod.
+
+	de asemenea, am descoperit o greseala la crearea sampleurilor de offline learning pe care le faceam, in sensul in care faceam sample pentru viteza din gridul de pozitii, fara sa imi dau seama. De multe ori asta insemna sa primesc valori care erau in afara intervalului de viteze posibile(caz ce este tratat prin convertirea la maximul sau la minimul vitezei admise); nu imi este inca clar cat de tare a afectat asta procesul de invatare offline
+
+
+	Rezultate actuale ale procesului de invatare:
+
+
+	Va atasez un video cu cel mai bun rezultat pe care l-am invatat offline. 
+
+	Dupa analiza progresului de invatare am tras urmatoare concluzie: ajunge sa invete modelul pana reuseste in unele pozitii initiale sa castig.Dupa acest punct la 1000 de iteratii e vizibil mai slaba performanta modelului. Modelul continua sa scada pana cand ajunge sa stea aproape pe loc. Dupa aceasta, incepe din nou un proces prin care ajunge sa se descurcce destul de bine, uneori chiar aproape castigand si apoi ajunge din nou abia sa se miste.
+		Cel mai bun rezultat pe care l-am gasit a fost pe la 500 000 de iteratii. Nu ajunge sa se convearga catre o varianta stabila a modelului si weighturile retelei par sa se schimbe drastic constant.
+
+
+
+
+
+
+
+			
+
+
