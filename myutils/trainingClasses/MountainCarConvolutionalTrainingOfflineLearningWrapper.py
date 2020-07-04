@@ -1,4 +1,5 @@
 import csv
+import datetime
 from io import StringIO
 from collections import deque
 import random
@@ -104,34 +105,56 @@ class MountainCarConvolutionalTrainingOfflineLearningWrapper(MountainCarConvolut
 
     def get_samples_batch(self):
 
-
+        time_start_reset = datetime.datetime.now()
         self.env.reset()
+        time_end_reset = datetime.datetime.now()
 
+        time_start_deque_clear = datetime.datetime.now()
         self.samples_deque.clear()
+        time_end_deque_clear = datetime.datetime.now()
 
+        time_start_random_sample = datetime.datetime.now()
         positions_sampled_from_grid = random.sample(list(self.pos_grid), self.num_pick_from_buffer)
-        velocities_sampled_from_grid = random.sample(list(self.pos_grid), self.num_pick_from_buffer)
+        time_end_random_sample = datetime.datetime.now()
+        velocities_sampled_from_grid = random.sample(list(self.vel_grid), self.num_pick_from_buffer)
 
+        time_start_deque_init = datetime.datetime.now()
         first_state = deque(maxlen=self.stack_depth)
+        time_end_deque_init = datetime.datetime.now()
 
-
+        time_start_construct_all_samples = datetime.datetime.now()
         for sample_number in range(self.num_pick_from_buffer):
+
+            #make sure that the first state deque is empty before constructing the new sample
+            first_state.clear()
 
             first_state_first_image_position = positions_sampled_from_grid[sample_number]
             first_state_first_image_velocity = velocities_sampled_from_grid[sample_number]
 
-            #set the agent in the position to crate a sample
+            time_start_set_hardcoded_values = datetime.datetime.now()
+            #set the agent in a random init position to crate a sample
             self.env.set_state_with_harcoded_values(first_state_first_image_position, first_state_first_image_velocity)
+            time_end_set_hardcoded_values= datetime.datetime.now()
 
-            first_state.clear()
 
-            #obtain the first state || one action for stack_depth frames
+            time_start_render= datetime.datetime.now()
+            #obtain the first frame
+            time_start_render = datetime.datetime.now()
+            current_frame = self.env.render(mode='rgb_array')
+            time_end_render = datetime.datetime.now()
+
+            time_start_process_image= datetime.datetime.now()
+            current_frame = self.process_image(current_frame)
+            first_state.append(current_frame)
+            time_end_process_image = datetime.datetime.now()
+
+            #obtain the other stack_depth-1 frames for the first state || one unique action for stack_depth frames
             action = random.choice(self.all_action)
-            for frame_number in range(self.stack_depth):
+            for frame_number in range(self.stack_depth-1):
+                self.env.step(action)
                 current_frame = self.env.render(mode='rgb_array')
                 current_frame = self.process_image(current_frame)
                 first_state.append(current_frame)
-                self.env.step(action)
 
             first_state_for_sample = np.asarray(first_state)
 
@@ -143,14 +166,29 @@ class MountainCarConvolutionalTrainingOfflineLearningWrapper(MountainCarConvolut
             second_state_final_frame = self.env.render(mode='rgb_array')
             second_state_final_frame = self.process_image(second_state_final_frame)
 
+            time_start_copy_and_append = datetime.datetime.now()
             #create the second state
             second_state = first_state.copy()
             second_state.append(second_state_final_frame)
+            time_end_copy_and_append = datetime.datetime.now()
 
             second_state_for_sample = np.asarray(second_state)
 
             #construct the sample
             self.samples_deque.append([first_state_for_sample, action_transition, sample_reward, second_state_for_sample, sample_done])
+
+        time_end_construct_all_samples = datetime.datetime.now()
+
+        print("Time values for get_samples_batch: ")
+        print("Environment reset: {}".format(time_end_reset-time_start_reset))
+        print("dequeue.clear(): {}".format(time_end_deque_clear- time_start_deque_clear))
+        print("random sampling: {}".format(time_end_random_sample- time_start_random_sample))
+        print("deque initialize: {}".format(time_end_deque_init- time_start_deque_init))
+        print("Step with hardcoded values: {}".format(time_end_set_hardcoded_values- time_start_set_hardcoded_values))
+        print("Render time: {}".format(time_end_render- time_start_render))
+        print("Process image time: {}".format(time_end_process_image- time_start_process_image))
+        print("Copy and append: {}".format(time_end_copy_and_append- time_start_copy_and_append))
+        print("Construct all samples: {}".format(time_end_construct_all_samples- time_start_construct_all_samples))
 
         return self.samples_deque
 
