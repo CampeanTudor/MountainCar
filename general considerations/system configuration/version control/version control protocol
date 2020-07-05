@@ -1,6 +1,5 @@
 fiecare branch se creeaza si se mergeuieste in develop-seriously
-in master se face merge doar cand poate fi facut deploy ceea ce se va si face dupa fiecare merge
-in fiecare commit se explica exact ce s-a facut
+in master se face merge doar dupa ce a fost facut deploy si s-a testat solutia ca e functionala in branchul develop-seriously/test-solution-with-deploy
 patternul pt brancheul din develop-seriously e urmatorul: urmatorul_deploy/ce_se_face
 dupa deploy se adauga fisierele( cu un scurt rezumat si concluzii)
 si modele ce trebuiesc salvate in history si se commit din master cu urmatorul pattern nume_deploy_incorporated_in_history
