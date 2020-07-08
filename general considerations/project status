@@ -47,3 +47,8 @@ am creat brancheul de change_architecture_of_offline_learning_sampling_for_effic
     folosesc si in aces caz un un dequeue ca si replay_buffer din online pentru a stoca datelele
     pot sa creez doar un singur sample de fiecare data si folosind bool "training" sa permit inceperea procesului de invatare
 
+7 8 2020:
+
+dupa feedbackul primit de la Florin si domn' profesor se vor face urmatoarele modificari in cod:
+
+-creez branchul "code_optimization" si din el cate un branch pentru fiecare punct mentionat de Florin in statusul final
