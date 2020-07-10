@@ -1,20 +1,16 @@
 import csv
 from collections import deque
 import random
-import tensorflow as tf
+
+import keras
 import cv2
-from keras import models
+from keras import models, Model
 from keras import layers
 from keras.optimizers import Adam
 from myutils.offlineLearningDataGeneration.TrainingSetManipulator import TrainingSetManipulator
-from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
-from myutils.offlineLearningDataGeneration.OfflineGridTrainingSetGenerator import OfflineGridTrainingSetGenerator
 import myutils.constants.Constants as cts
 from keras.losses import huber_loss
 import numpy as np
-from io import StringIO
-
-from keras import backend as K
 
 
 class MountainCarConvolutionalTraining:
@@ -26,9 +22,7 @@ class MountainCarConvolutionalTraining:
         self.stack_depth, self.image_height, self.image_width = self.get_model_input_shape()
         self.num_actions = env.action_space.n
 
-        self.learning_rate = 0.00025
-        self.train_network = self.create_network()
-        self.target_network = self.create_network()
+        self.gamma = 0.99
 
         self.epsilon = 1
         self.epsilon_decay = 0.000018
@@ -36,7 +30,7 @@ class MountainCarConvolutionalTraining:
 
         self.frames_memory = deque(maxlen=self.stack_depth)
         self.replay_buffer = deque(maxlen=200000)
-        self.minimum_samples_for_training = 150000
+        self.minimum_samples_for_training = 32
         self.num_pick_from_buffer = 32
 
         self.time_steps_in_episode = 300  # max is 200
@@ -48,21 +42,31 @@ class MountainCarConvolutionalTraining:
         self.update_weights_threshold = 35
         self.save_model_threshold = 1000
 
+        self.learning_rate = 0.00025
+        self.train_network = self.create_network()
+        self.target_network = self.create_network()
+
         self.training_set_manipulator = TrainingSetManipulator()
 
     def create_network(self):
+
         input_shape = (self.stack_depth, self.image_height, self.image_width)
 
-        model = models.Sequential()
+        action_mask = layers.Input(shape=(self.num_actions,), name='action_mask')
 
-        model.add(layers.Conv2D(32, (8, 8), strides=4, padding="same", activation='relu', input_shape=input_shape, name='conv_1'))
-        model.add(layers.Conv2D(64, (4, 4), strides=2, padding='same', activation='relu', name='conv_2'))
-        model.add(layers.Conv2D(64, (3, 3), strides=2, padding='same', activation='relu', name='conv_3'))
+        state_input = layers.Input(input_shape, name="state_input")
+        conv_1 = layers.Conv2D(32, (8, 8), strides=4, padding="same", activation='relu', name='conv_1')(state_input)
+        conv_2 = layers.Conv2D(64, (4, 4), strides=2, padding='same', activation='relu', name='conv_2')(conv_1)
+        conv_3 = layers.Conv2D(64, (3, 3), strides=2, padding='same', activation='relu', name='conv_3')(conv_2)
 
-        model.add(layers.Flatten())
+        flatten = layers.Flatten()(conv_3)
 
-        model.add(layers.Dense(512, activation='relu', name='dense_1'))
-        model.add(layers.Dense(self.num_actions, activation='linear', name='output'))
+        dense_hidden = layers.Dense(512, activation='relu', name='dense_hidden')(flatten)
+        output_Q_values = layers.Dense(self.num_actions, activation='linear', name='output_Q_values')(dense_hidden)
+
+        output_Q_values_with_action_mask = layers.Multiply(name='output_Q_values_with_action_mask')([output_Q_values, action_mask])
+
+        model = Model(input=[state_input, action_mask], output=[output_Q_values_with_action_mask])
 
         model.compile(loss=huber_loss, optimizer=Adam(lr=self.learning_rate))
 
@@ -168,41 +172,44 @@ class MountainCarConvolutionalTraining:
         if not samples:
             return
 
-        current_state = []
-        new_states = []
-        rewards = []
-        actions = []
-        dones = []
-        for sample in samples:
-            state, action, reward, new_state, done = sample
-            current_state.append(state)
-            new_states.append(new_state)
-            rewards.append(reward)
-            actions.append(action)
-            dones.append(done)
+        samples = np.asarray(samples)
+        current_states = samples[:, 0]
+        actions = samples[:, 1]
+        rewards = samples[:, 2]
+        new_states = samples[:, 3]
+        dones = samples[:, 4]
 
-        current_state = np.array(current_state)
-        current_state = self.normalize_images(current_state)
+        current_states = self.normalize_images(list(current_states))
 
-        new_states = np.array(new_states)
-        new_states = self.normalize_images(new_states)
+        new_states = self.normalize_images(list(new_states))
 
-        current_state_Q_values = self.train_network.predict(current_state)
-        next_state_Q_values = self.target_network.predict(new_states)
+        actions = np.asarray(list(actions))
+        
+        dones = list(dones)
 
-        i = 0
-        for sample in samples:
-            state, action, reward, new_state, done = sample
+        rewards = np.asarray(rewards)
 
-            if done:
-                next_state_Q_values[i] = np.zeros(self.num_actions)
+        #the values of the next state the agent arrives used to update it's Q_value for the (current_state, action) from the sample
+        next_state_Q_values = self.target_network.predict([new_states, np.repeat(np.ones((1, self.num_actions)), self.num_pick_from_buffer,axis=0)])
 
-            current_state_Q_values[i] = np.zeros(self.num_actions)
-            Q_future = max(next_state_Q_values[i])
-            (current_state_Q_values[i])[action] = reward + Q_future * 0.99
-            i += 1
+        #create the targets for the case when the final state is not terminal
+        updated_Q_values = rewards + self.gamma * next_state_Q_values.max(axis=1)
 
-        self.train_network.fit(current_state, current_state_Q_values, epochs=1, verbose=0)
+        #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
+        updated_Q_values[dones] = rewards[dones]
+
+        encoded_actions = self.get_one_hot_actions(actions)
+
+        updated_Q_values = encoded_actions * updated_Q_values[:, None]
+
+        self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0)
+
+    def get_one_hot_actions(self, actions):
+
+        encoded_actions = np.zeros((actions.size, actions.max()+1))
+        encoded_actions[np.arange(actions.size), actions] = 1
+
+        return encoded_actions
 
     def get_samples_batch(self):
 

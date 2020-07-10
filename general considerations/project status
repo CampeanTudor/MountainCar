@@ -52,3 +52,12 @@ am creat brancheul de change_architecture_of_offline_learning_sampling_for_effic
 dupa feedbackul primit de la Florin si domn' profesor se vor face urmatoarele modificari in cod:
 
 -creez branchul "code_optimization" si din el cate un branch pentru fiecare punct mentionat de Florin in statusul final(creat)
+-creat vectorization_of_training_process pentru prima schimbare
+
+
+7 10 2020:
+
+am terminat de facut vectorizarea: schimbat structura retelei sa includa un layer de Multiply si de asemenea sa foloseasca o masca a actiunilor pentru a lua in considerare daor Q relevant
+tot algoritmul este vectorizat
+
+ -> merge-uiesc  in code_optimization si ma apuc de schimbat
