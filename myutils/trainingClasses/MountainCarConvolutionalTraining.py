@@ -223,8 +223,8 @@ class MountainCarConvolutionalTraining:
     def get_model_input_shape(self):
         self.env.reset()
         initial_image_shape = self.env.render(mode='rgb_array').shape
-        image_height = 100  # initial_image_shape[0]
-        image_width = 150  # initial_image_shape[1]
+        image_height = 48  # initial_image_shape[0]
+        image_width = 48  # initial_image_shape[1]
         stack_depth = 4
 
         # dimensions are 2 400 600
@@ -238,7 +238,7 @@ class MountainCarConvolutionalTraining:
         if len(image.shape) == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        return cv2.resize(image, (150, 100))
+        return cv2.resize(image, (48, 48))
 
     def normalize_images(self, image):
         return np.float32(np.true_divide(image, 255))

@@ -61,3 +61,4 @@ am terminat de facut vectorizarea: schimbat structura retelei sa includa un laye
 tot algoritmul este vectorizat
 
  -> merge-uiesc  in code_optimization si ma apuc de schimbat
+ -> merge-uiesc in code _optimization si change input_dimenstions
