@@ -11,6 +11,7 @@ from myutils.offlineLearningDataGeneration.TrainingSetManipulator import Trainin
 import myutils.constants.Constants as cts
 from keras.losses import huber_loss
 import numpy as np
+from keras.utils import to_categorical
 
 
 class MountainCarConvolutionalTraining:
@@ -29,8 +30,8 @@ class MountainCarConvolutionalTraining:
         self.epsilon_min = 0.1
 
         self.frames_memory = deque(maxlen=self.stack_depth)
-        self.replay_buffer = deque(maxlen=200000)
-        self.minimum_samples_for_training = 32
+        self.replay_buffer = deque(maxlen=100000)
+        self.minimum_samples_for_training = 32 #50000
         self.num_pick_from_buffer = 32
 
         self.time_steps_in_episode = 300  # max is 200
@@ -157,7 +158,7 @@ class MountainCarConvolutionalTraining:
             action = np.random.randint(0, 3)
         else:
             state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
-            action = np.argmax(self.train_network.predict(state)[0])
+            action = np.argmax(self.train_network.predict([state, np.ones((1, self.num_actions))]))
 
         # update epsilon
         if self.training:
@@ -195,21 +196,14 @@ class MountainCarConvolutionalTraining:
         #create the targets for the case when the final state is not terminal
         updated_Q_values = rewards + self.gamma * next_state_Q_values.max(axis=1)
 
-        #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
+        #if the final state is terminal than the pre8terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
-        encoded_actions = self.get_one_hot_actions(actions)
+        encoded_actions = to_categorical(actions, num_classes=3)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
         self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0)
-
-    def get_one_hot_actions(self, actions):
-
-        encoded_actions = np.zeros((actions.size, actions.max()+1))
-        encoded_actions[np.arange(actions.size), actions] = 1
-
-        return encoded_actions
 
     def get_samples_batch(self):
 
