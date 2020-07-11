@@ -62,3 +62,11 @@ tot algoritmul este vectorizat
 
  -> merge-uiesc  in code_optimization si ma apuc de schimbat
  -> merge-uiesc in code _optimization si change input_dimenstions
+
+
+ 7 11 2020:
+
+ testate schimbarile pe develop seriously, voi mergeui in master
+ schimbari:
+ vectorizare training phase, eliminare un forward, reducere dimensiune frameuri input la 48x48
+ micsorare dimensiune buffer: la 100000/50000
