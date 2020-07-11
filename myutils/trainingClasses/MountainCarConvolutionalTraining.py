@@ -29,8 +29,8 @@ class MountainCarConvolutionalTraining:
         self.epsilon_min = 0.1
 
         self.frames_memory = deque(maxlen=self.stack_depth)
-        self.replay_buffer = deque(maxlen=200000)
-        self.minimum_samples_for_training = 32
+        self.replay_buffer = deque(maxlen=100000)
+        self.minimum_samples_for_training = 50000
         self.num_pick_from_buffer = 32
 
         self.time_steps_in_episode = 300  # max is 200
