@@ -1,0 +1,6 @@
+pentru version control si pasii ce trebuie urmati in development trebuie respectat "version control protocol"
+"in current project status" se adauga: -un rezumat scurt a muncii facute in aceea zi
+                                       -momentul cand un branch se mergeuieste
+                                       -rezultatul testelor in caz de deploy
+                                       -ce se urmareste pentru urmatorul deploy
+

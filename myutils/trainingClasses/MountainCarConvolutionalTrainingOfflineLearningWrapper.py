@@ -1,4 +1,5 @@
 import csv
+import datetime
 from io import StringIO
 from collections import deque
 import random
@@ -85,73 +86,81 @@ class MountainCarConvolutionalTrainingOfflineLearningWrapper(MountainCarConvolut
 
         return self.samples_deque
 
+    #nu e nevoie nici de current_state nici de episode in logica offline
     def do_learn(self, current_state, episode):
+
         # echivalentul la 10^3 episoade cu 300 de antrenari/episode
         for i in range(3000000):
 
-            self.train_training_network()
+            # generate a random sample and add it to replay_buffer
+            self.replay_buffer.append(self.generate_random_sample())
 
-            # sync networks
-            if (i % self.time_steps_in_episode) == 0:
-                self.synch_networks()
-                print("iteration {} equivalent to {} episodes".format(i, int(i / self.time_steps_in_episode)))
+            #start training only when the minimum samples where gathered
+            if len(self.replay_buffer) == self.minimum_samples_for_training:
+                self.training = True
 
-            # save model every 5000 iterations
-            if (i % self.offline_learning_save_threshold) == 0:
-                self.train_network.save(
-                    cts.Constants.PATH_TO_SAVE_MODEL_OFFLINE_LEARNING_AT_ITERATION_TEMPALTE.format(int(i)))
+            if self.training:
 
-    def get_samples_batch(self):
+                self.train_training_network()
 
+                # sync networks
+                if (i % self.time_steps_in_episode) == 0:
+                    self.synch_networks()
+                    print("iteration {} equivalent to {} episodes".format(i, int(i / self.time_steps_in_episode)))
+
+                # save model every 5000 iterations
+                if (i % self.offline_learning_save_threshold) == 0:
+                    self.train_network.save(
+                        cts.Constants.PATH_TO_SAVE_MODEL_OFFLINE_LEARNING_AT_ITERATION_TEMPALTE.format(int(i)))
+
+    def generate_random_sample(self):
 
         self.env.reset()
 
-        self.samples_deque.clear()
-
-        positions_sampled_from_grid = random.sample(list(self.pos_grid), self.num_pick_from_buffer)
-        velocities_sampled_from_grid = random.sample(list(self.pos_grid), self.num_pick_from_buffer)
-
         first_state = deque(maxlen=self.stack_depth)
 
+        #make sure that the first state deque is empty before constructing the new sample
+        first_state.clear()
 
-        for sample_number in range(self.num_pick_from_buffer):
+        first_state_first_image_position = random.sample(list(self.pos_grid), 1)
+        first_state_first_image_velocity = random.sample(list(self.vel_grid), 1)
 
-            first_state_first_image_position = positions_sampled_from_grid[sample_number]
-            first_state_first_image_velocity = velocities_sampled_from_grid[sample_number]
+        #set the agent in a random init position to crate a sample
+        self.env.set_state_with_harcoded_values(first_state_first_image_position, first_state_first_image_velocity)
 
-            #set the agent in the position to crate a sample
-            self.env.set_state_with_harcoded_values(first_state_first_image_position, first_state_first_image_velocity)
 
-            first_state.clear()
+        #obtain the first frame
+        current_frame = self.env.render(mode='rgb_array')
 
-            #obtain the first state || one action for stack_depth frames
-            action = random.choice(self.all_action)
-            for frame_number in range(self.stack_depth):
-                current_frame = self.env.render(mode='rgb_array')
-                current_frame = self.process_image(current_frame)
-                first_state.append(current_frame)
-                self.env.step(action)
+        current_frame = self.process_image(current_frame)
+        first_state.append(current_frame)
 
-            first_state_for_sample = np.asarray(first_state)
+        #obtain the other stack_depth-1 frames for the first state || one unique action for stack_depth frames
+        action = random.choice(self.all_action)
+        for frame_number in range(self.stack_depth-1):
+            self.env.step(action)
+            current_frame = self.env.render(mode='rgb_array')
+            current_frame = self.process_image(current_frame)
+            first_state.append(current_frame)
 
-            #take action to next state
-            action_transition = self.get_best_action(first_state_for_sample)
-            second_state_final_frame_numerical, sample_reward, sample_done, _ = self.env.step(action_transition)
+        first_state_for_sample = np.asarray(first_state)
 
-            #obtain the last frame for the second state
-            second_state_final_frame = self.env.render(mode='rgb_array')
-            second_state_final_frame = self.process_image(second_state_final_frame)
+        #take action to next state
+        action_transition = self.get_best_action(first_state_for_sample)
+        second_state_final_frame_numerical, sample_reward, sample_done, _ = self.env.step(action_transition)
 
-            #create the second state
-            second_state = first_state.copy()
-            second_state.append(second_state_final_frame)
+        #obtain the last frame for the second state
+        second_state_final_frame = self.env.render(mode='rgb_array')
+        second_state_final_frame = self.process_image(second_state_final_frame)
 
-            second_state_for_sample = np.asarray(second_state)
+        #create the second state
+        second_state = first_state.copy()
+        second_state.append(second_state_final_frame)
 
-            #construct the sample
-            self.samples_deque.append([first_state_for_sample, action_transition, sample_reward, second_state_for_sample, sample_done])
+        second_state_for_sample = np.asarray(second_state)
 
-        return self.samples_deque
+        #construct the sample
+        return [first_state_for_sample, action_transition, sample_reward, second_state_for_sample, sample_done]
 
     def offline_learning_random_sampling_from_files(self):
 
