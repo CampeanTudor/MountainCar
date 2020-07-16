@@ -70,3 +70,8 @@ tot algoritmul este vectorizat
  schimbari:
  vectorizare training phase, eliminare un forward, reducere dimensiune frameuri input la 48x48
  micsorare dimensiune buffer: la 100000/50000
+
+ 7 16 2020:
+
+ testat cu schimbarile de cod facute: ingrozitor procesul de invatare
+ voi crea azi un deploy in care sa testez cu functia de reward schimbata sa asiguram convergenta spre un model stabil

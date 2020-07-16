@@ -30,8 +30,8 @@ class MountainCarConvolutionalTraining:
         self.epsilon_min = 0.1
 
         self.frames_memory = deque(maxlen=self.stack_depth)
-        self.replay_buffer = deque(maxlen=200000)
-        self.minimum_samples_for_training = 32
+        self.replay_buffer = deque(maxlen=100000)
+        self.minimum_samples_for_training = 50000
         self.num_pick_from_buffer = 32
 
         self.time_steps_in_episode = 300  # max is 200
@@ -196,10 +196,10 @@ class MountainCarConvolutionalTraining:
         #create the targets for the case when the final state is not terminal
         updated_Q_values = rewards + self.gamma * next_state_Q_values.max(axis=1)
 
-        #if the final state is terminal than the pre8terminal state(current state) has Q = reward only
+        #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
-        encoded_actions = to_categorical(actions, num_classes=3)
+        encoded_actions = self.get_one_hot_actions(actions)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
