@@ -149,7 +149,7 @@ class MountainCarConvolutionalTraining:
             with open('./rewards_in_episodes.csv', mode='a+', newline='') as numerical_data:
                 numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
                                                    quoting=csv.QUOTE_MINIMAL)
-                numerical_data_writer.writerow([episode, reward_sum])
+                numerical_data_writer.writerow([episode, reward_sum, 1 if done else 0])
 
     def get_best_action(self, state):
         self.epsilon = max(self.epsilon, self.epsilon_min)
