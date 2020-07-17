@@ -75,3 +75,5 @@ tot algoritmul este vectorizat
 
  testat cu schimbarile de cod facute: ingrozitor procesul de invatare
  voi crea azi un deploy in care sa testez cu functia de reward schimbata sa asiguram convergenta spre un model stabil
+
+ o sa modific tot in deploy_7_5 pentru a fi mai simplu
