@@ -100,7 +100,7 @@ class MountainCarConvolutionalTraining:
             if time_step % self.stack_depth == 0:
                 best_action = self.get_best_action(current_state)
 
-            new_state_numerical, reward, done, _ = self.env.step(best_action)
+            new_state_numerical, reward, done, _ = self.env.step_with_custom_reward(best_action)
             new_image = self.env.render(mode='rgb_array')
             next_frame = self.process_image(new_image)
             next_frame = next_frame.reshape(next_frame.shape[0], next_frame.shape[1])
@@ -199,7 +199,7 @@ class MountainCarConvolutionalTraining:
         #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
-        encoded_actions = self.get_one_hot_actions(actions)
+        encoded_actions = to_categorical(actions, num_classes=3)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
