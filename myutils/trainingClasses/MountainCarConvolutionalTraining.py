@@ -11,6 +11,7 @@ from myutils.offlineLearningDataGeneration.TrainingSetManipulator import Trainin
 import myutils.constants.Constants as cts
 from keras.losses import huber_loss
 import numpy as np
+from keras.utils import to_categorical
 
 
 class MountainCarConvolutionalTraining:
@@ -99,7 +100,7 @@ class MountainCarConvolutionalTraining:
             if time_step % self.stack_depth == 0:
                 best_action = self.get_best_action(current_state)
 
-            new_state_numerical, reward, done, _ = self.env.step(best_action)
+            new_state_numerical, reward, done, _ = self.env.step_with_custom_reward(best_action)
             new_image = self.env.render(mode='rgb_array')
             next_frame = self.process_image(new_image)
             next_frame = next_frame.reshape(next_frame.shape[0], next_frame.shape[1])
@@ -157,7 +158,7 @@ class MountainCarConvolutionalTraining:
             action = np.random.randint(0, 3)
         else:
             state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
-            action = np.argmax(self.train_network.predict(state)[0])
+            action = np.argmax(self.train_network.predict([state, np.ones((1, self.num_actions))]))
 
         # update epsilon
         if self.training:
@@ -198,18 +199,11 @@ class MountainCarConvolutionalTraining:
         #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
-        encoded_actions = self.get_one_hot_actions(actions)
+        encoded_actions = to_categorical(actions, num_classes=3)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
         self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0)
-
-    def get_one_hot_actions(self, actions):
-
-        encoded_actions = np.zeros((actions.size, actions.max()+1))
-        encoded_actions[np.arange(actions.size), actions] = 1
-
-        return encoded_actions
 
     def get_samples_batch(self):
 

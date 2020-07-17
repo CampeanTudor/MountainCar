@@ -7,6 +7,8 @@ import numpy as np
 
 class MountainCarEnvWrapper(gym.Wrapper):
 
+
+
     def step_with_hardcoded_values(self, position, velocity):
 
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
@@ -53,9 +55,35 @@ class MountainCarEnvWrapper(gym.Wrapper):
         self.state = (position, velocity)
         return np.array(self.state), reward, done, {}
 
+    def step_with_custom_reward(self, action, new_action=True):
+        assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
+
+        position, velocity = self.state
+        velocity += (action - 1) * self.force + math.cos(3 * position) * (-self.gravity)
+        velocity = np.clip(velocity, -self.max_speed, self.max_speed)
+        position += velocity
+        position = np.clip(position, self.min_position, self.max_position)
+        if (position == self.min_position and velocity < 0): velocity = 0
+
+        done = bool(position >= self.goal_position and velocity >= self.goal_velocity)
+
+        if not done:
+            reward = np.abs(position - self.previous_state[0]) - 0.025
+        else:
+            reward = 10
+
+        if new_action:
+            self.previous_state = [position, velocity]
+
+        self.state = (position, velocity)
+
+        return np.array(self.state), reward, done, {}
+
     def reset(self):
 
         self.state = np.array([self.np_random.uniform(low=-0.6, high=-0.4), 0])
+        self.previous_state = self.state
+
         return np.array(self.state)
 
 
