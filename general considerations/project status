@@ -76,4 +76,20 @@ tot algoritmul este vectorizat
  testat cu schimbarile de cod facute: ingrozitor procesul de invatare
  voi crea azi un deploy in care sa testez cu functia de reward schimbata sa asiguram convergenta spre un model stabil
 
+
+ 7 23 2020:
+
+ incep schimbarile pentru rezolvarea instabilitatii asa cum am vorbit cu Florin in mail
+ develop-seriously->instability_solution_development_change_exploration_parameters
+
+ schimb la 100 de episoade
+ explorare random dureaza 5 episoade
+ degradez eps in 30 de episoade
+
  o sa modific tot in deploy_7_5 pentru a fi mai simplu
+
+ 7 27 2020:
+
+ generez graficul cu datele pe care le am acum
+
+ o sa refac antrenarea cu RMSprop la optimizare pentru comparatie
