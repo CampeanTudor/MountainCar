@@ -90,6 +90,6 @@ tot algoritmul este vectorizat
 
  7 27 2020:
 
- generez graficul cu datele pe care le am acum
+ generez graficul cu datele pe care le am acum si realizez testele de validares
 
  o sa refac antrenarea cu RMSprop la optimizare pentru comparatie
