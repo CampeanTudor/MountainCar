@@ -123,4 +123,8 @@ tot algoritmul este vectorizat
         minimum_samples_for_training = 1500
 
 
+ o sa fac exact aceeasi analiza acum si pentru cazul cu RMSprop ca optimizer in felul urmator: RmsProp(...,rho=0.95, momentum=0.0, centered=True, epsilon=0.00001)
+ de testat testez pe local implementarea, dar voi suprascrie direct in deploy
+
+
 
