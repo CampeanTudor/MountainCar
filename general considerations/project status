@@ -93,3 +93,34 @@ tot algoritmul este vectorizat
  generez graficul cu datele pe care le am acum si realizez testele de validares
 
  o sa refac antrenarea cu RMSprop la optimizare pentru comparatie
+
+ 7 28 2020:
+
+ am terminat de generat si graficul de validare pentru antrenarea fara RMSprop
+
+ schimbari facute pana in acest punct pentru rezolvarea instabilitatii:
+
+ creat urmatorul proces de analiza:
+    clasa MountainCarConvolutionalTraining imi genereaza datele total_reward/episode in rewards_in_episodes.csv
+
+    codul din code snippets.ipynb pe cu tagul "#%% data for graph of validation step" (imi genereaza in momentul acesta)
+    total_reward/episode pe o plaja de la 100 de episoade pentru fiecare model salvat in trackingProgress in faza de antrenare
+    (in momentul acesta tot la 10 episoade salvez un model)
+
+    tagul de "#%% graph of the validation process" genereaza un grafic cu datele create de "#%% data for graph of validation step"
+    in felul urmator: reprezentarea grafica pentru al 2-lea model este intre ep 100-200;fiecare unitate de pe grafic reprezinta
+    un episod de validare
+
+    tagul "#%% graph of the training process" creaza datele total_reward/episode in faza de antrenare
+
+ schimbari cod antrenare:
+
+ redus perioada de antrenare la 100 ep
+ schimbat functia de reward pentru a primi reward mai semnificativ( nu stiu daca e corect scrisa)
+ schimbat degradare epsilon pe o perioada de 30 de episoade
+ schimbat perioada de explorare la 5 episoade + redus dimensiune experience_buffer:
+        replay_buffer = deque(maxlen=50000)
+        minimum_samples_for_training = 1500
+
+
+
