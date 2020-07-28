@@ -26,22 +26,23 @@ class MountainCarConvolutionalTraining:
         self.gamma = 0.99
 
         self.epsilon = 1
-        self.epsilon_decay = 0.000018
+        self.epsilon_decay = 0.0004
         self.epsilon_min = 0.1
 
+        self.time_steps_in_episode = 300  # changed to 300 for better chance of winning the episode
+
         self.frames_memory = deque(maxlen=self.stack_depth)
-        self.replay_buffer = deque(maxlen=100000)
-        self.minimum_samples_for_training = 50000
+        self.replay_buffer = deque(maxlen=50000)
+        self.minimum_samples_for_training = self.time_steps_in_episode * 5
         self.num_pick_from_buffer = 32
 
-        self.time_steps_in_episode = 300  # max is 200
 
-        self.episode_num = 10000
+        self.episode_num = 100
 
         self.training = False
 
         self.update_weights_threshold = 35
-        self.save_model_threshold = 1000
+        self.save_model_threshold = 10
 
         self.learning_rate = 0.00025
         self.train_network = self.create_network()
@@ -65,7 +66,8 @@ class MountainCarConvolutionalTraining:
         dense_hidden = layers.Dense(512, activation='relu', name='dense_hidden')(flatten)
         output_Q_values = layers.Dense(self.num_actions, activation='linear', name='output_Q_values')(dense_hidden)
 
-        output_Q_values_with_action_mask = layers.Multiply(name='output_Q_values_with_action_mask')([output_Q_values, action_mask])
+        output_Q_values_with_action_mask = layers.Multiply(name='output_Q_values_with_action_mask')(
+            [output_Q_values, action_mask])
 
         model = Model(input=[state_input, action_mask], output=[output_Q_values_with_action_mask])
 
@@ -88,7 +90,6 @@ class MountainCarConvolutionalTraining:
             self.frames_memory.extend(current_state)
 
             self.do_learn(current_state, episode)
-
 
     def do_learn(self, current_state, episode):
 
@@ -115,7 +116,6 @@ class MountainCarConvolutionalTraining:
             # make the training possible only when the minimum experience was gathered
             if len(self.replay_buffer) == self.minimum_samples_for_training:
                 self.training = True
-
 
             if self.training:
                 self.train_training_network()
@@ -185,18 +185,19 @@ class MountainCarConvolutionalTraining:
         new_states = self.normalize_images(list(new_states))
 
         actions = np.asarray(list(actions))
-        
+
         dones = list(dones)
 
         rewards = np.asarray(rewards)
 
-        #the values of the next state the agent arrives used to update it's Q_value for the (current_state, action) from the sample
-        next_state_Q_values = self.target_network.predict([new_states, np.repeat(np.ones((1, self.num_actions)), self.num_pick_from_buffer,axis=0)])
+        # the values of the next state the agent arrives used to update it's Q_value for the (current_state, action) from the sample
+        next_state_Q_values = self.target_network.predict(
+            [new_states, np.repeat(np.ones((1, self.num_actions)), self.num_pick_from_buffer, axis=0)])
 
-        #create the targets for the case when the final state is not terminal
+        # create the targets for the case when the final state is not terminal
         updated_Q_values = rewards + self.gamma * next_state_Q_values.max(axis=1)
 
-        #if the final state is terminal than the pre-terminal state(current state) has Q = reward only
+        # if the final state is terminal than the pre-terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
         encoded_actions = to_categorical(actions, num_classes=3)
