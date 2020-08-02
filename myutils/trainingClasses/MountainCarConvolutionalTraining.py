@@ -2,12 +2,13 @@ import csv
 from collections import deque
 import random
 
+from keras.callbacks import History
+
 import keras
 import cv2
 from keras import models, Model
 from keras import layers
 from keras.optimizers import Adam
-from myutils.offlineLearningDataGeneration.TrainingSetManipulator import TrainingSetManipulator
 import myutils.constants.Constants as cts
 from keras.losses import huber_loss
 import numpy as np
@@ -37,7 +38,7 @@ class MountainCarConvolutionalTraining:
         self.num_pick_from_buffer = 32
 
 
-        self.episode_num = 100
+        self.episode_num = 150
 
         self.training = False
 
@@ -48,7 +49,7 @@ class MountainCarConvolutionalTraining:
         self.train_network = self.create_network()
         self.target_network = self.create_network()
 
-        self.training_set_manipulator = TrainingSetManipulator()
+        self.training_model_history = History()
 
     def create_network(self):
 
@@ -204,7 +205,12 @@ class MountainCarConvolutionalTraining:
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
-        self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0)
+        self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0, callbacks=[self.training_model_history])
+
+        with open('./loss_values_during_training.csv', mode='a+', newline='') as numerical_data:
+            numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
+                                               quoting=csv.QUOTE_MINIMAL)
+            numerical_data_writer.writerow([self.training_model_history.history['loss'][0]])
 
     def get_samples_batch(self):
 
