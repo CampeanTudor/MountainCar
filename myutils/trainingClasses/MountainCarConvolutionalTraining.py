@@ -14,15 +14,16 @@ from keras.losses import huber_loss
 import numpy as np
 from keras.utils import to_categorical
 
+from myutils.ModelTrainingAndValidationParameters import ModelTrainingAndValidationParameters
+
 
 class MountainCarConvolutionalTraining:
 
-    def __init__(self, env):
+    def __init__(self):
 
-        self.env = env
+        self.config = ModelTrainingAndValidationParameters()
 
-        self.stack_depth, self.image_height, self.image_width = self.get_model_input_shape()
-        self.num_actions = env.action_space.n
+        self.env = self.config.ENVIRONMENT
 
         self.gamma = 0.99
 
@@ -30,22 +31,15 @@ class MountainCarConvolutionalTraining:
         self.epsilon_decay = 0.0004
         self.epsilon_min = 0.1
 
-        self.time_steps_in_episode = 300  # changed to 300 for better chance of winning the episode
+        self.learning_rate = 0.00025
 
-        self.frames_memory = deque(maxlen=self.stack_depth)
-        self.replay_buffer = deque(maxlen=50000)
-        self.minimum_samples_for_training = self.time_steps_in_episode * 5
+        self.frames_memory = deque(maxlen=self.config.FRAMES_IN_STATE)
+        self.replay_buffer = deque(maxlen=self.config.MAXIMUM_NUMBER_OF_STATES_IN_BUFFER)
+        self.minimum_samples_for_training = self.config.MINIMUM_SAMPLES_TO_START_TRAINING
         self.num_pick_from_buffer = 32
-
-
-        self.episode_num = 150
 
         self.training = False
 
-        self.update_weights_threshold = 35
-        self.save_model_threshold = 10
-
-        self.learning_rate = 0.00025
         self.train_network = self.create_network()
         self.target_network = self.create_network()
 
@@ -53,9 +47,9 @@ class MountainCarConvolutionalTraining:
 
     def create_network(self):
 
-        input_shape = (self.stack_depth, self.image_height, self.image_width)
+        input_shape = (self.config.FRAMES_IN_STATE, self.config.FRAME_HEIGHT, self.config.FRAME_WIDTH)
 
-        action_mask = layers.Input(shape=(self.num_actions,), name='action_mask')
+        action_mask = layers.Input(shape=(self.config.NUMBER_OF_ACTIONS,), name='action_mask')
 
         state_input = layers.Input(input_shape, name="state_input")
         conv_1 = layers.Conv2D(32, (8, 8), strides=4, padding="same", activation='relu', name='conv_1')(state_input)
@@ -65,7 +59,7 @@ class MountainCarConvolutionalTraining:
         flatten = layers.Flatten()(conv_3)
 
         dense_hidden = layers.Dense(512, activation='relu', name='dense_hidden')(flatten)
-        output_Q_values = layers.Dense(self.num_actions, activation='linear', name='output_Q_values')(dense_hidden)
+        output_Q_values = layers.Dense(self.config.NUMBER_OF_ACTIONS, activation='linear', name='output_Q_values')(dense_hidden)
 
         output_Q_values_with_action_mask = layers.Multiply(name='output_Q_values_with_action_mask')(
             [output_Q_values, action_mask])
@@ -78,16 +72,18 @@ class MountainCarConvolutionalTraining:
 
     def start(self):
 
-        for episode in range(self.episode_num):
+        for episode in range(self.config.NUMBER_OF_TRAINING_EPISODES):
             self.frames_memory.clear()
 
             self.env.reset()
 
             current_image = self.env.render(mode='rgb_array')
-            current_frame = self.process_image(
-                current_image)  # the frame is an greyscale image of the current position
+
+            current_frame = self.process_image(current_image)  # the frame is an greyscale image of the current position
             current_frame = current_frame.reshape(1, current_frame.shape[0], current_frame.shape[1])
-            current_state = np.repeat(current_frame, self.stack_depth, axis=0)
+
+            current_state = np.repeat(current_frame, self.config.FRAMES_IN_STATE, axis=0)
+
             self.frames_memory.extend(current_state)
 
             self.do_learn(current_state, episode)
@@ -96,10 +92,10 @@ class MountainCarConvolutionalTraining:
 
         reward_sum = 0
 
-        for time_step in range(self.time_steps_in_episode):
+        for time_step in range(self.config.TIME_STEPS_IN_EPISODE):
 
             # calculate a new action only when all frames from a state had been changed
-            if time_step % self.stack_depth == 0:
+            if time_step % self.config.FRAMES_IN_STATE == 0:
                 best_action = self.get_best_action(current_state)
 
             new_state_numerical, reward, done, _ = self.env.step_with_custom_reward(best_action)
@@ -115,18 +111,19 @@ class MountainCarConvolutionalTraining:
             self.replay_buffer.append([current_state, best_action, reward, new_state, done])
 
             # make the training possible only when the minimum experience was gathered
-            if len(self.replay_buffer) == self.minimum_samples_for_training:
+            if len(self.replay_buffer) == self.config.MINIMUM_SAMPLES_TO_START_TRAINING:
                 self.training = True
 
             if self.training:
                 self.train_training_network()
+
             reward_sum += reward
             current_state = new_state
 
             if done:
                 break
 
-        if time_step >= self.time_steps_in_episode - 1:
+        if time_step >= self.config.TIME_STEPS_IN_EPISODE - 1:
             print("Failed to finish task in episode {} with reward {} and epsilon {}".format(episode, reward_sum,
                                                                                              self.epsilon))
         else:
@@ -138,11 +135,11 @@ class MountainCarConvolutionalTraining:
         if self.training:
 
             # synchronize model_network and target_network
-            if (episode % self.update_weights_threshold) == 0:
+            if (episode % self.config.UPDATE_TRAINING_NET_THRESHOLD) == 0:
                 self.synch_networks()
 
             # save weights for tracking progress
-            if (episode % self.save_model_threshold) == 0:
+            if (episode % self.config.SAVE_MODEL_THRESHOLD) == 0:
                 print('Data saved at episode:', episode)
                 self.train_network.save(
                     cts.Constants.PATH_TO_MODELS_TRACKING_PROGRESS_TRESHOLD_SAVES + 'DQN_CNN_model_episode_{}.h5'.format(
@@ -159,7 +156,7 @@ class MountainCarConvolutionalTraining:
             action = np.random.randint(0, 3)
         else:
             state = state.reshape(1, state.shape[0], state.shape[1], state.shape[2])
-            action = np.argmax(self.train_network.predict([state, np.ones((1, self.num_actions))]))
+            action = np.argmax(self.train_network.predict([state, np.ones((1, self.config.NUMBER_OF_ACTIONS))]))
 
         # update epsilon
         if self.training:
@@ -193,7 +190,7 @@ class MountainCarConvolutionalTraining:
 
         # the values of the next state the agent arrives used to update it's Q_value for the (current_state, action) from the sample
         next_state_Q_values = self.target_network.predict(
-            [new_states, np.repeat(np.ones((1, self.num_actions)), self.num_pick_from_buffer, axis=0)])
+            [new_states, np.repeat(np.ones((1, self.config.NUMBER_OF_ACTIONS)), self.config.BATCH_SIZE, axis=0)])
 
         # create the targets for the case when the final state is not terminal
         updated_Q_values = rewards + self.gamma * next_state_Q_values.max(axis=1)
@@ -201,7 +198,7 @@ class MountainCarConvolutionalTraining:
         # if the final state is terminal than the pre-terminal state(current state) has Q = reward only
         updated_Q_values[dones] = rewards[dones]
 
-        encoded_actions = to_categorical(actions, num_classes=3)
+        encoded_actions = to_categorical(actions, num_classes=self.config.NUMBER_OF_ACTIONS)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
 
@@ -214,22 +211,13 @@ class MountainCarConvolutionalTraining:
 
     def get_samples_batch(self):
 
-        if len(self.replay_buffer) < self.num_pick_from_buffer:
+        if len(self.replay_buffer) < self.config.BATCH_SIZE:
             return
 
-        samples = random.sample(self.replay_buffer, self.num_pick_from_buffer)
+        samples = random.sample(self.replay_buffer, self.config.BATCH_SIZE)
 
         return samples
 
-    def get_model_input_shape(self):
-        self.env.reset()
-        initial_image_shape = self.env.render(mode='rgb_array').shape
-        image_height = 48  # initial_image_shape[0]
-        image_width = 48  # initial_image_shape[1]
-        stack_depth = 4
-
-        # dimensions are 2 400 600
-        return stack_depth, image_height, image_width
 
     def synch_networks(self):
         self.target_network.set_weights(self.train_network.get_weights())
@@ -239,7 +227,7 @@ class MountainCarConvolutionalTraining:
         if len(image.shape) == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        return cv2.resize(image, (48, 48))
+        return cv2.resize(image, (self.config.FRAME_HEIGHT, self.config.FRAME_WIDTH))
 
     def normalize_images(self, image):
         return np.float32(np.true_divide(image, 255))

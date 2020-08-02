@@ -130,3 +130,13 @@ tot algoritmul este vectorizat
 
 o sa fac sa se salveze in fisierul loss_values_during_training.csv lossul care e in self.training_net_loss_values; o sa creez un plot pentru aceste valori
 
+8 2 2020:
+
+in branchul instability_solution_development:
+
+am creat functionalitatatea de colectare a valorilor lossului in timpul antrenarii si plotarea lor(TrainingProcessAnalyzation si MountainCarConvNetTrain)
+din cauza ca aceleasi date de configurare a sistemului le foloseam si in ploturi si in antrenare si validare am creat:
+ModelTrainingAndValidationParam unde tin setarile efective de environment a proceselor
+TrainingAndValidationProcessAnalyzation unde tin metodele de producere a datelor pt ploturi si a ploturilor
+
+toate schimbarile astea au venit cu urmari si in celelalte fisiere de notebook
