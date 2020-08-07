@@ -140,3 +140,9 @@ ModelTrainingAndValidationParam unde tin setarile efective de environment a proc
 TrainingAndValidationProcessAnalyzation unde tin metodele de producere a datelor pt ploturi si a ploturilor
 
 toate schimbarile astea au venit cu urmari si in celelalte fisiere de notebook
+
+mai pe departe automatizare proces de creare a analizei complete dupa ce dau drumu la training
+
+7 8 2020:
+
+upgrage la keras si tensorflow, a trebuit sa refac putin codul

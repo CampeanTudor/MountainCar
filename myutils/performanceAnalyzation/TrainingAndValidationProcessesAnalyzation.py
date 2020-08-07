@@ -60,9 +60,7 @@ class TrainingAndValidationProcessesAnalyzation:
         with open('./loss_values_during_training.csv', mode='r', newline='') as numerical_data:
             reader = csv.reader(numerical_data, delimiter=',')
             for row in reader:
-                loss_values.extend([np.asarray(float(row[0]))]),
-
-        loss_values = np.asarray(loss_values)
+                loss_values = np.float_(row)
 
         points_on_x_axis = 31
 

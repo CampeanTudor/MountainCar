@@ -1,16 +1,16 @@
 import csv
+import datetime
 from collections import deque
 import random
 
 from keras.callbacks import History
 
-import keras
+import tensorflow as tf
 import cv2
-from keras import models, Model
-from keras import layers
-from keras.optimizers import Adam
+from tensorflow.keras import models, Model
+from tensorflow.keras import layers
+from tensorflow.keras.optimizers import Adam
 import myutils.constants.Constants as cts
-from keras.losses import huber_loss
 import numpy as np
 from keras.utils import to_categorical
 
@@ -64,9 +64,9 @@ class MountainCarConvolutionalTraining:
         output_Q_values_with_action_mask = layers.Multiply(name='output_Q_values_with_action_mask')(
             [output_Q_values, action_mask])
 
-        model = Model(input=[state_input, action_mask], output=[output_Q_values_with_action_mask])
+        model = Model(inputs=[state_input, action_mask], outputs=[output_Q_values_with_action_mask])
 
-        model.compile(loss=huber_loss, optimizer=Adam(lr=self.learning_rate))
+        model.compile(loss=tf.keras.losses.Huber(), optimizer=Adam(lr=self.learning_rate))
 
         return model
 
@@ -87,6 +87,12 @@ class MountainCarConvolutionalTraining:
             self.frames_memory.extend(current_state)
 
             self.do_learn(current_state, episode)
+
+        # when all the trainign is finished and all loss values are gathered write them in the file
+        with open('./loss_values_during_training.csv', mode='a+', newline='') as numerical_data:
+            numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
+                                               quoting=csv.QUOTE_MINIMAL)
+            numerical_data_writer.writerow(self.training_model_history.history['loss'])
 
     def do_learn(self, current_state, episode):
 
@@ -188,6 +194,7 @@ class MountainCarConvolutionalTraining:
 
         rewards = np.asarray(rewards)
 
+
         # the values of the next state the agent arrives used to update it's Q_value for the (current_state, action) from the sample
         next_state_Q_values = self.target_network.predict(
             [new_states, np.repeat(np.ones((1, self.config.NUMBER_OF_ACTIONS)), self.config.BATCH_SIZE, axis=0)])
@@ -201,13 +208,14 @@ class MountainCarConvolutionalTraining:
         encoded_actions = to_categorical(actions, num_classes=self.config.NUMBER_OF_ACTIONS)
 
         updated_Q_values = encoded_actions * updated_Q_values[:, None]
+        updated_Q_values = np.asarray(updated_Q_values, dtype=float)
 
         self.train_network.fit([current_states, encoded_actions], updated_Q_values, epochs=1, verbose=0, callbacks=[self.training_model_history])
 
-        with open('./loss_values_during_training.csv', mode='a+', newline='') as numerical_data:
-            numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
-                                               quoting=csv.QUOTE_MINIMAL)
-            numerical_data_writer.writerow([self.training_model_history.history['loss'][0]])
+        # with open('./loss_values_during_training.csv', mode='a+', newline='') as numerical_data:
+        #     numerical_data_writer = csv.writer(numerical_data, delimiter=',', quotechar='"',
+        #                                        quoting=csv.QUOTE_MINIMAL)
+        #     numerical_data_writer.writerow([self.training_model_history.history['loss'][-1]])
 
     def get_samples_batch(self):
 
